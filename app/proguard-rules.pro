@@ -1,3 +1,15 @@
+# LibXposed API 102
+-dontwarn io.github.libxposed.**
+-keep @io.github.libxposed.api.annotations.XposedHooker class * {
+    @io.github.libxposed.api.annotations.BeforeInvocation <methods>;
+    @io.github.libxposed.api.annotations.AfterInvocation <methods>;
+}
+-keep public class * extends io.github.libxposed.api.XposedModule {
+    public <init>(...);
+    public void onPackageLoaded(...);
+    public void onSystemServerLoaded(...);
+}
+
 # YukiHookAPI
 -keep class com.highcapable.yukihookapi.** { *; }
 -keep interface com.highcapable.yukihookapi.** { *; }

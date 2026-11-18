@@ -19,7 +19,7 @@
 ## 🛠 技术架构与技术栈
 
 - **开发语言**: Kotlin 2.0.21
-- **Hook 框架**: [YukiHookAPI 1.2.1](https://github.com/HighCapable/YukiHookAPI) (基于 KSP 自动生成 Xposed 入口，支持 LSPosed 现代架构)
+- **Hook 规范**: **LSPosed / LibXposed API 102** (`io.github.libxposed:api:102.0.0`) + YukiHookAPI 兼容层
 - **UI 界面**: Jetpack Compose 2024.11 + Material 3 (动态取色、Edge-to-Edge 边到边全面屏体验)
 - **规则引擎**:
   - `LinkExtractor`: 智能提取各种复杂文本中的顶级域名、http/https 链接，自动回溯绑定前后文提取码/密码

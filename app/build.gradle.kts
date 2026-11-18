@@ -15,7 +15,7 @@ android {
         minSdk = 29
         targetSdk = 35
         versionCode = 380
-        versionName = "3.8.0-Xposed"
+        versionName = "3.8.0-API102"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -62,6 +62,9 @@ dependencies {
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.okhttp)
+
+    // LibXposed API 102 (Modern LSPosed Standard)
+    compileOnly(libs.libxposed.api)
 
     // YukiHookAPI: Modern Kotlin Xposed framework
     implementation(libs.yukihookapi.core)

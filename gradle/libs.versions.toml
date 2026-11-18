@@ -12,6 +12,7 @@ serialization = "1.7.3"
 datastore = "1.1.1"
 material3 = "1.3.1"
 okhttp = "4.12.0"
+libxposed = "102.0.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -33,7 +34,10 @@ kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-
 # Network for Cloud Rules
 okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhttp" }
 
-# YukiHookAPI (Modern Kotlin Xposed Framework)
+# LibXposed API 102 (Modern LSPosed Standard)
+libxposed-api = { group = "io.github.libxposed", name = "api", version.ref = "libxposed" }
+
+# YukiHookAPI (Optional legacy support)
 yukihookapi-core = { group = "com.highcapable.yukihookapi", name = "api", version.ref = "yukihookapi" }
 yukihookapi-ksp = { group = "com.highcapable.yukihookapi", name = "ksp-xposed", version.ref = "yukihookapi" }
 
