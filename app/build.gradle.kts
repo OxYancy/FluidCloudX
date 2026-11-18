@@ -14,8 +14,8 @@ android {
         applicationId = "com.nyehueh.fluidcloud"
         minSdk = 29
         targetSdk = 35
-        versionCode = 382
-        versionName = "3.8.2-API102"
+        versionCode = 383
+        versionName = "3.8.3-API102"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

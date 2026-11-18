@@ -85,7 +85,7 @@ data class FluidConfig(
         "tech", "wang", "site", "xin", "store", "art", "cc", "website", "press",
         "space", "beer", "luxe", "video", "group", "ren", "fit", "yoga", "pro",
         "ink", "info", "mobi", "kim", "red", "run", "chat", "cool", "zone", "host",
-        "biz", "me", "so"
+        "biz", "me", "so", "io", "dev", "app", "ai", "gg", "moe", "link", "is", "im"
     ),
     val emailKeywords: List<String> = listOf(
         "qq.com", "126.com", "163.com", "139.com", "gmail.com", "hotmail.com",

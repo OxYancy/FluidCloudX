@@ -343,7 +343,26 @@ fun SettingsScreen(
                             modifier = Modifier.fillMaxWidth(),
                             maxLines = 3
                         )
-                        Spacer(modifier = Modifier.height(10.dp))
+                        Spacer(modifier = Modifier.height(6.dp))
+
+                        // 快速填入测试示例
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            modifier = Modifier.padding(bottom = 6.dp)
+                        ) {
+                            SuggestionChip(
+                                onClick = { testInputText = "http://ghcr.io/kmworks/kmrs:latest" },
+                                label = { Text("HTTP外链", fontSize = 11.sp) }
+                            )
+                            SuggestionChip(
+                                onClick = { testInputText = "https://pan.baidu.com/s/1xxxxxx 提取码: 8888" },
+                                label = { Text("网盘提取码", fontSize = 11.sp) }
+                            )
+                            SuggestionChip(
+                                onClick = { testInputText = "https://b23.tv/BV1xx411c7mD" },
+                                label = { Text("哔哩哔哩", fontSize = 11.sp) }
+                            )
+                        }
 
                         // Action Buttons: Row 1
                         Row(

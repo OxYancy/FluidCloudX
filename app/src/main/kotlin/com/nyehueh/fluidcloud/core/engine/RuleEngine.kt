@@ -82,7 +82,82 @@ class RuleEngine(
             }
         }
 
+        // 默认浏览器兜底与联动：对于任意 http/https 链接（包括通用外链如 http://ghcr.io/kmworks/kmrs:latest）
+        if (extractedLink.url.startsWith("http://", ignoreCase = true) ||
+            extractedLink.url.startsWith("https://", ignoreCase = true)
+        ) {
+            val browserPkg = resolveDefaultBrowserPackage()
+            val browserName = browserPkg?.let { getAppName(it) } ?: "浏览器"
+            val browserResult = MatchedResult(
+                ruleName = "浏览器打开",
+                type = "url",
+                targetUriOrIntent = extractedLink.url,
+                targetPackage = browserPkg,
+                targetActivity = null,
+                extractionCode = extractedLink.code,
+                title = "在${browserName}中打开",
+                message = extractedLink.url,
+                iconPkg = browserPkg,
+                userId = 0
+            )
+
+            if (results.isEmpty()) {
+                // 没有命中任何特定规则的纯外链，浏览器作为首要唤起目标
+                results.add(browserResult)
+            } else {
+                // 已命中专属 App（如 B站），将浏览器作为备选加入列表末尾
+                if (results.none { it.targetPackage == browserPkg }) {
+                    results.add(browserResult)
+                }
+            }
+        }
+
         return results
+    }
+
+    private fun resolveDefaultBrowserPackage(): String? {
+        val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse("http://www.example.com"))
+        val resolveInfo = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            packageManager.resolveActivity(
+                browserIntent,
+                PackageManager.ResolveInfoFlags.of(PackageManager.MATCH_DEFAULT_ONLY.toLong())
+            )
+        } else {
+            @Suppress("DEPRECATION")
+            packageManager.resolveActivity(browserIntent, PackageManager.MATCH_DEFAULT_ONLY)
+        }
+
+        val pkg = resolveInfo?.activityInfo?.packageName
+        if (pkg != null && pkg != "android" && pkg != context.packageName && isPackageInstalled(pkg)) {
+            return pkg
+        }
+
+        val activities = packageManager.queryIntentActivities(browserIntent, 0)
+        for (info in activities) {
+            val p = info.activityInfo.packageName
+            if (p != context.packageName && p != "android" && isPackageInstalled(p)) {
+                return p
+            }
+        }
+        return null
+    }
+
+    private fun getAppName(packageName: String): String? {
+        return try {
+            val appInfo = packageManager.getApplicationInfo(packageName, 0)
+            packageManager.getApplicationLabel(appInfo).toString()
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    private fun isPackageInstalled(packageName: String): Boolean {
+        return try {
+            packageManager.getPackageInfo(packageName, 0)
+            true
+        } catch (_: Exception) {
+            false
+        }
     }
 
     private fun checkAvailability(rule: Rule): Boolean {

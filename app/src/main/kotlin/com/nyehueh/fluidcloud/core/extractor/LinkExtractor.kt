@@ -51,33 +51,29 @@ class LinkExtractor(private val config: FluidConfig = FluidConfig()) {
         val rawLinks = mutableListOf<String>()
         val candidateTokens = mutableListOf<String>()
 
+        tokens.forEach { token ->
+            if (token.startsWith("http://", ignoreCase = true) || token.startsWith("https://", ignoreCase = true)) {
+                if (token.length > 8 && token.contains(".")) {
+                    if (token !in rawLinks) rawLinks.add(token)
+                }
+            } else {
+                candidateTokens.add(token)
+            }
+        }
+
+        // Scan candidate non-scheme tokens for top-level domains
         config.topLevelDomains.forEach { tld ->
             val tldSlash = ".$tld/"
             val tldDot = ".$tld"
 
-            tokens.forEach { token ->
+            candidateTokens.forEach { token ->
                 if (token.contains(tldSlash) && token.length > tld.length + 2) {
                     if (token !in rawLinks) rawLinks.add(token)
-                } else if (token !in candidateTokens) {
-                    candidateTokens.add(token)
-                }
-            }
-        }
-
-        config.topLevelDomains.forEach { tld ->
-            val suffix = ".$tld"
-            candidateTokens.forEach { token ->
-                if (token.endsWith(suffix) && token.length > tld.length + 1) {
+                } else if (token.endsWith(tldDot) && token.length > tld.length + 1) {
                     val isEmail = config.emailKeywords.any { emailKwd ->
                         token.contains("@$emailKwd")
                     }
                     if (!isEmail && token !in rawLinks) {
-                        rawLinks.add(token)
-                    }
-                } else if ((token.startsWith("http://") || token.startsWith("https://")) &&
-                    token.length > 8 && token.contains(".")
-                ) {
-                    if (token !in rawLinks) {
                         rawLinks.add(token)
                     }
                 }

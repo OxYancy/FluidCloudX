@@ -41,7 +41,17 @@ class AppLauncher(
         when (mode) {
             LaunchMode.FULLSCREEN -> {
                 intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                context.startActivity(intent)
+                try {
+                    context.startActivity(intent)
+                } catch (e: Exception) {
+                    intent.setPackage(null)
+                    intent.component = null
+                    try {
+                        context.startActivity(intent)
+                    } catch (ex: Exception) {
+                        Toast.makeText(context, "无法打开此链接: ${ex.message}", Toast.LENGTH_SHORT).show()
+                    }
+                }
             }
             LaunchMode.WINDOW -> {
                 launchInWindow(intent)
