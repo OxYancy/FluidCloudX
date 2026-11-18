@@ -43,13 +43,23 @@ class RuleRepository(private val context: Context) {
             try {
                 val text = rulesFile.readText()
                 val loaded = json.decodeFromString<List<Rule>>(text)
-                // 若本地规则仅有早期测试的3条或为空，自动升级初始化为内置的27条完整规则
+                // 若本地规则仅有早期测试的3条或为空，自动升级初始化为内置的完整规则
                 if (loaded.size <= 3) {
                     val defaultList = getDefaultRules()
                     _rules.value = defaultList
                     saveRules(defaultList)
                 } else {
-                    _rules.value = loaded
+                    // 增量补全任何新版本加入的内置规则（如 PiliNara）
+                    val defaultList = getDefaultRules()
+                    val existingNames = loaded.map { it.name }.toSet()
+                    val missingDefaults = defaultList.filter { it.name !in existingNames }
+                    if (missingDefaults.isNotEmpty()) {
+                        val merged = loaded + missingDefaults
+                        _rules.value = merged
+                        saveRules(merged)
+                    } else {
+                        _rules.value = loaded
+                    }
                 }
             } catch (e: Exception) {
                 val defaultList = getDefaultRules()

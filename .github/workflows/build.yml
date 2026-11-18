@@ -67,7 +67,7 @@ jobs:
         run: |
           mkdir -p build_output
           SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
-          VERSION="3.8.4-API102"
+          VERSION="3.8.5-API102"
 
           # 收集 Debug APK
           if [ -f "app/build/outputs/apk/debug/app-debug.apk" ]; then

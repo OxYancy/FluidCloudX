@@ -224,7 +224,7 @@ fun SettingsScreen(
                     Column(modifier = Modifier.padding(16.dp)) {
                         Text("规则库管理", fontWeight = FontWeight.Bold, fontSize = 16.sp)
                         Text(
-                            "内置全套 27 条社区精选规则（覆盖百度网盘、123网盘、115、B站、淘宝、京东、小红书等），支持云端增量同步与一键重置。",
+                            "内置全套 28 条精选规则（覆盖百度网盘、123网盘、115、B站、PiliPlus、PiliNara、淘宝、京东、小红书等），支持云端增量同步与一键重置。",
                             fontSize = 12.sp,
                             color = Color.Gray,
                             modifier = Modifier.padding(vertical = 4.dp)

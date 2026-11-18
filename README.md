@@ -33,9 +33,9 @@
 
 ---
 
-## 📦 内置 27 套社区精选规则一览
+## 📦 内置 28 套社区精选规则一览
 
-模块打包内置了全部 27 款主流常用规则，开箱即用，支持提取码自动提取与回填：
+模块打包内置了全部 28 款主流常用规则，开箱即用，支持提取码自动提取与回填：
 
 1. **百度网盘** (`pan.baidu.com` / `yun.baidu.com`) -> 自动识别并附带 4 位提取码，直接呼起百度网盘
 2. **123网盘** (`123pan.com`) -> 自动提取提取码并跳转 123 网盘客户端
@@ -43,8 +43,9 @@
 4. **阿里云盘** (`alipan.com` / `aliyundrive.com`) -> 自动转入阿里云盘 App
 5. **夸克网盘** (`pan.quark.cn`) -> 识别夸克网盘链接并调用夸克
 6. **哔哩哔哩** (`bilibili.com` / `b23.tv`) -> 自动解析 B 站短链并直达客户端对应视频/动态
-7. **PiliPlus** (`bilibili.com`) -> 支持第三方开源客户端 PiliPlus 播放
-8. **YouTube** (`youtube.com` / `youtu.be`) -> 直达 YouTube / Revanced 播放页面
+7. **PiliPlus** (`bilibili.com` / `com.example.piliplus`) -> 支持第三方开源客户端 PiliPlus 播放
+8. **PiliNara** (`bilibili.com` / `com.example.pilinara`) -> 支持第三方开源客户端 PiliNara 播放
+9. **YouTube** (`youtube.com` / `youtu.be`) -> 直达 YouTube / Revanced 播放页面
 9. **X (Twitter)** (`twitter.com` / `x.com`) -> 转换为原生推文链接呼起 X 客户端
 10. **Telegram** (`t.me` / `telegram.me`) -> 直接呼起 TG 客户端频道或群组
 11. **TVBox** (`tvbox://`) -> 电视直播与点播接口导入
