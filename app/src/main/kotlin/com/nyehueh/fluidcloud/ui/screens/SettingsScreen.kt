@@ -45,58 +45,8 @@ private val RECOMMENDED_APPS = listOf(
     RecommendedScopeApp(
         name = "系统框架 (system_server)",
         packageName = "android",
-        description = "【核心必须】全局监听外部链接 Intent 分发与剪贴板变动，实现全系统流体云调度",
+        description = "【唯一必须・防封安全】仅 Hook 系统底层框架，不注入任何第三方应用（微信/QQ等）进程，零封号与风控危险！全局统管全系统外链跳转与剪贴板分发。",
         isCore = true
-    ),
-    RecommendedScopeApp(
-        name = "QQ",
-        packageName = "com.tencent.mobileqq",
-        description = "拦截聊天窗口点击网址，避免进入 QQ 内置中转页，直接呼出流体云"
-    ),
-    RecommendedScopeApp(
-        name = "微信",
-        packageName = "com.tencent.mm",
-        description = "拦截微信内置 WebView (MMWebViewUI) 外链，一键呼出对应 App"
-    ),
-    RecommendedScopeApp(
-        name = "新浪微博",
-        packageName = "com.sina.weibo",
-        description = "拦截正文及评论中的网盘、视频、电商等外部链接"
-    ),
-    RecommendedScopeApp(
-        name = "哔哩哔哩",
-        packageName = "tv.danmaku.bili",
-        description = "拦截动态及评论区中的外部网址，直达关联客户端"
-    ),
-    RecommendedScopeApp(
-        name = "酷安",
-        packageName = "com.coolapk.market",
-        description = "拦截头条、动态及评论中的外链与酷品口令"
-    ),
-    RecommendedScopeApp(
-        name = "知乎",
-        packageName = "com.zhihu.android",
-        description = "拦截回答与文章内的外链跳转，直接转为流体云快捷打开"
-    ),
-    RecommendedScopeApp(
-        name = "小红书",
-        packageName = "com.xingin.xhs",
-        description = "拦截图文笔记与评论中的外部分享链接"
-    ),
-    RecommendedScopeApp(
-        name = "抖音",
-        packageName = "com.ss.android.ugc.aweme",
-        description = "拦截短视频评论及私信内的外链分享"
-    ),
-    RecommendedScopeApp(
-        name = "淘宝",
-        packageName = "com.taobao.taobao",
-        description = "拦截淘口令与商品外部跳转"
-    ),
-    RecommendedScopeApp(
-        name = "京东",
-        packageName = "com.jingdong.app.mall",
-        description = "拦截京口令与商品外部跳转"
     )
 )
 
@@ -210,9 +160,9 @@ fun SettingsScreen(
                         }
 
                         Text(
-                            text = "在 LSPosed 模块作用域中勾选以下应用可获得最佳流体云拦截体验：",
+                            text = "纯系统框架 Hook 设计：在 LSPosed 中仅需勾选【系统框架 (android)】即可全局生效。零封号与风控隐患，不注入任何第三方应用（微信/QQ等）！",
                             fontSize = 12.sp,
-                            color = Color.Gray,
+                            color = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.padding(vertical = 8.dp)
                         )
 
