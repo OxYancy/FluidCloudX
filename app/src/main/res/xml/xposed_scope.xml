@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<packages>
+    <!-- System Framework: Intercept system-level activity start and clipboard changes -->
+    <package name="android" />
+    <!-- QQ In-App Browser Hook -->
+    <package name="com.tencent.mobileqq" />
+    <!-- WeChat In-App Browser Hook -->
+    <package name="com.tencent.mm" />
+    <!-- Self module -->
+    <package name="com.nyehueh.fluidcloud" />
+</packages>

@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">流体云 X</string>
+    <string name="xposed_description">流体云 Xposed 模块：系统级无感拦截并以小窗/全屏分发链接，智能提取提取码</string>
+</resources>

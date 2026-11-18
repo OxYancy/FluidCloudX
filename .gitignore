@@ -1,0 +1,19 @@
+*.iml
+.gradle
+/local.properties
+/.idea/
+.DS_Store
+/build
+/captures
+.externalNativeBuild
+.cxx
+
+# Built application files
+*.apk
+*.aar
+*.ap_
+*.aab
+
+# Keep the Gradle Wrapper
+!gradle/wrapper/gradle-wrapper.jar
+!gradle/wrapper/gradle-wrapper.properties
