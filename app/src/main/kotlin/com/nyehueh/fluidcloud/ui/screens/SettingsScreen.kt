@@ -3,8 +3,11 @@ package com.nyehueh.fluidcloud.ui.screens
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.provider.Settings
 import android.widget.Toast
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -27,6 +30,7 @@ import com.nyehueh.fluidcloud.core.extractor.LinkExtractor
 import com.nyehueh.fluidcloud.core.launcher.AppLauncher
 import com.nyehueh.fluidcloud.core.model.MatchedResult
 import com.nyehueh.fluidcloud.data.RuleRepository
+import com.nyehueh.fluidcloud.overlay.FluidOverlayService
 import kotlinx.coroutines.launch
 
 data class RecommendedScopeApp(
@@ -110,6 +114,7 @@ fun SettingsScreen(
     var isSyncing by remember { mutableStateOf(false) }
     var testInputText by remember { mutableStateOf("https://pan.baidu.com/s/1xxxxxx 提取码: 8888") }
     var testMatchResults by remember { mutableStateOf<List<MatchedResult>>(emptyList()) }
+    var showInAppCapsuleDialog by remember { mutableStateOf(false) }
 
     val linkExtractor = remember(config) { LinkExtractor(config) }
     val launcher = remember(config) { AppLauncher(context, config) }
@@ -315,24 +320,35 @@ fun SettingsScreen(
                 }
             }
 
-            // 4. Playground / Test Simulator
+            // 4. Playground / Test Simulator & Popup Demo
             item {
                 Card(
                     shape = RoundedCornerShape(16.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
-                        Text("规则调试与实时测试", fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                        Spacer(modifier = Modifier.height(8.dp))
+                        Text("规则调试与弹窗效果测试", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        Text(
+                            "可输入含有外链或提取码的文本，实时测试流体云胶囊悬浮弹窗与小窗/全屏唤起效果。",
+                            fontSize = 12.sp,
+                            color = Color.Gray,
+                            modifier = Modifier.padding(vertical = 4.dp)
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
                         OutlinedTextField(
                             value = testInputText,
                             onValueChange = { testInputText = it },
-                            label = { Text("粘贴测试文本（含链接与提取码）") },
+                            label = { Text("测试文本（含链接与提取码）") },
                             modifier = Modifier.fillMaxWidth(),
                             maxLines = 3
                         )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        // Action Buttons: Row 1
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
                             Button(
                                 onClick = {
                                     val links = linkExtractor.extract(testInputText)
@@ -342,13 +358,66 @@ fun SettingsScreen(
                                     } else {
                                         val engine = RuleEngine(context, rules)
                                         testMatchResults = engine.match(links.first())
+                                        if (testMatchResults.isEmpty()) {
+                                            Toast.makeText(context, "已识别链接，但未匹配到本地已安装应用的规则", Toast.LENGTH_SHORT).show()
+                                        }
                                     }
-                                }
+                                },
+                                modifier = Modifier.weight(1f)
                             ) {
+                                Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
                                 Text("匹配测试")
                             }
-                            OutlinedButton(onClick = onOpenOverlayPermission) {
-                                Text("检查悬浮窗权限")
+
+                            OutlinedButton(
+                                onClick = onOpenOverlayPermission,
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Icon(Icons.Default.Security, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("悬浮窗权限")
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // Action Buttons: Row 2 (Popup Testing)
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            FilledTonalButton(
+                                onClick = {
+                                    if (!Settings.canDrawOverlays(context)) {
+                                        Toast.makeText(context, "请先授予悬浮窗权限以展示系统级流体云胶囊", Toast.LENGTH_LONG).show()
+                                        onOpenOverlayPermission()
+                                    } else {
+                                        FluidOverlayService.showTestPopup(context, testInputText)
+                                        Toast.makeText(context, "已触发屏幕上方悬浮胶囊弹窗！点击可体验小窗或轻扫关闭", Toast.LENGTH_SHORT).show()
+                                    }
+                                },
+                                modifier = Modifier.weight(1.2f)
+                            ) {
+                                Icon(Icons.Default.Layers, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("测试悬浮胶囊弹窗")
+                            }
+
+                            OutlinedButton(
+                                onClick = {
+                                    val links = linkExtractor.extract(testInputText)
+                                    if (links.isNotEmpty()) {
+                                        val engine = RuleEngine(context, rules)
+                                        testMatchResults = engine.match(links.first())
+                                    }
+                                    showInAppCapsuleDialog = true
+                                },
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Icon(Icons.Default.Visibility, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("预览弹窗效果")
                             }
                         }
 
@@ -421,6 +490,97 @@ fun SettingsScreen(
             }
 
             item { Spacer(modifier = Modifier.height(24.dp)) }
+        }
+    }
+
+    // In-App Interactive Capsule Preview Dialog
+    if (showInAppCapsuleDialog) {
+        val currentSampleMatch = testMatchResults.firstOrNull() ?: MatchedResult(
+            ruleName = "百度网盘 (预览)",
+            type = "url",
+            targetUriOrIntent = "bdnetdisk://n/action.VIEW_SHORTCUT?origin=com.android.browser&url=https://pan.baidu.com/s/1xxxxxx",
+            targetPackage = "com.baidu.netdisk",
+            targetActivity = null,
+            extractionCode = "8888",
+            title = "百度网盘",
+            message = "提取码: 8888 | 点击主体全屏打开，右侧小窗打开",
+            iconPkg = "com.baidu.netdisk"
+        )
+
+        AlertDialog(
+            onDismissRequest = { showInAppCapsuleDialog = false },
+            confirmButton = {},
+            dismissButton = {},
+            containerColor = Color.Transparent,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp)
+        ) {
+            Card(
+                shape = RoundedCornerShape(32.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xEE1E1E1E)),
+                border = BorderStroke(1.dp, Color(0x33FFFFFF)),
+                elevation = CardDefaults.cardElevation(defaultElevation = 16.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        showInAppCapsuleDialog = false
+                        launcher.launch(currentSampleMatch, AppLauncher.LaunchMode.FULLSCREEN)
+                    }
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                        modifier = Modifier.size(42.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.Default.CloudQueue,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.width(12.dp))
+
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = currentSampleMatch.title,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White,
+                            fontSize = 15.sp
+                        )
+                        Text(
+                            text = currentSampleMatch.message,
+                            color = Color(0xFFB0B0B0),
+                            fontSize = 12.sp,
+                            maxLines = 1
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.width(8.dp))
+
+                    FilledTonalButton(
+                        onClick = {
+                            showInAppCapsuleDialog = false
+                            launcher.launch(currentSampleMatch, AppLauncher.LaunchMode.WINDOW)
+                        },
+                        shape = RoundedCornerShape(20.dp),
+                        colors = ButtonDefaults.filledTonalButtonColors(
+                            containerColor = Color(0x33FFFFFF),
+                            contentColor = Color.White
+                        ),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                    ) {
+                        Text("小窗", fontSize = 12.sp)
+                    }
+                }
+            }
         }
     }
 }
