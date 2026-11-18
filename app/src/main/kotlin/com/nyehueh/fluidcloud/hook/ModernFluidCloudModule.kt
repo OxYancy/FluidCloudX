@@ -19,6 +19,26 @@ class ModernFluidCloudModule : XposedModule() {
 
     companion object {
         const val TAG = "FluidCloud-API102"
+        private var cachedSystemContext: Context? = null
+
+        private fun getSystemContext(thisObj: Any?): Context? {
+            if (cachedSystemContext != null) return cachedSystemContext
+            cachedSystemContext = try {
+                val atClass = Class.forName("android.app.ActivityThread")
+                val at = atClass.getMethod("currentActivityThread").invoke(null)
+                at?.javaClass?.getMethod("getSystemContext")?.invoke(at) as? Context
+            } catch (_: Exception) {
+                null
+            }
+            if (cachedSystemContext == null && thisObj != null) {
+                cachedSystemContext = try {
+                    thisObj.javaClass.getMethod("getContext").invoke(thisObj) as? Context
+                } catch (_: Exception) {
+                    null
+                }
+            }
+            return cachedSystemContext
+        }
     }
 
     override fun onPackageLoaded(param: PackageLoadedParam) {
@@ -28,7 +48,7 @@ class ModernFluidCloudModule : XposedModule() {
 
         when (param.packageName) {
             // =========================================================================
-            // 1. 系统框架 (system_server)
+            // 1. 系统框架 (system_server) - 核心基础：捕获全局 Intent 与剪贴板
             // =========================================================================
             "android" -> {
                 Log.i(TAG, "API 102: system_server (android) loaded -> initializing framework hooks")
@@ -48,6 +68,10 @@ class ModernFluidCloudModule : XposedModule() {
                             val url = extractUrlFromIntent(intent)
                             if (url != null) {
                                 Log.d(TAG, "🔥 [API 102 系统外链捕获] -> $url | reason=$reason")
+                                val ctx = getSystemContext(chain.thisObject)
+                                if (ctx != null) {
+                                    broadcastDetectedText(ctx, url, "system_intent")
+                                }
                             }
                         }
                         chain.proceed()
@@ -67,6 +91,10 @@ class ModernFluidCloudModule : XposedModule() {
                                     val url = extractUrlFromIntent(intent)
                                     if (url != null) {
                                         Log.d(TAG, "🔥 [API 102 ATMS 外链捕获] -> $url")
+                                        val ctx = getSystemContext(chain.thisObject)
+                                        if (ctx != null) {
+                                            broadcastDetectedText(ctx, url, "system_intent")
+                                        }
                                     }
                                 }
                                 chain.proceed()
@@ -93,11 +121,7 @@ class ModernFluidCloudModule : XposedModule() {
                                 val text = clip.getItemAt(0)?.text?.toString()
                                 val thisObj = chain.thisObject
                                 if (!text.isNullOrBlank() && thisObj != null) {
-                                    val context = try {
-                                        thisObj.javaClass.getMethod("getContext").invoke(thisObj) as? Context
-                                    } catch (_: Exception) {
-                                        null
-                                    }
+                                    val context = getSystemContext(thisObj)
                                     if (context != null) {
                                         Log.d(TAG, "🔥 [API 102 剪贴板变动] from $callingPkg: $text")
                                         broadcastDetectedText(context, text, "clipboard")
@@ -117,66 +141,108 @@ class ModernFluidCloudModule : XposedModule() {
             // 2. QQ 内置网页 (com.tencent.mobileqq)
             // =========================================================================
             "com.tencent.mobileqq" -> {
-                try {
-                    val qqBrowser = classLoader.loadClass("com.tencent.mobileqq.activity.QQBrowserActivity")
-                    val onCreate = qqBrowser.getDeclaredMethod("onCreate", Bundle::class.java)
-                    hook(onCreate).intercept { chain ->
-                        val activity = chain.thisObject as? Activity
-                        val intent = activity?.intent
-                        if (intent != null) {
-                            var url = intent.getStringExtra("url")
-                            if (url.isNullOrBlank()) {
-                                val uriStr = intent.toUri(0)
-                                val match = Regex("S\\.url=(.*?);").find(uriStr)
-                                if (match != null) {
-                                    url = Uri.decode(match.groupValues[1])
-                                }
-                            }
-                            if (!url.isNullOrBlank() && (url.startsWith("http://") || url.startsWith("https://"))) {
-                                Log.d(TAG, "🔥 [API 102 QQ 内置网页拦截] -> $url")
-                                broadcastDetectedText(activity, url, "QQ")
-                            }
-                        }
-                        chain.proceed()
-                    }
-                    Log.i(TAG, "API 102: Hooked QQBrowserActivity.onCreate")
-                } catch (e: Exception) {
-                    Log.e(TAG, "API 102: Failed to hook QQBrowserActivity", e)
-                }
+                hookQQ(classLoader)
+                hookGenericActivity(classLoader, "QQ")
             }
 
             // =========================================================================
             // 3. 微信内置网页 (com.tencent.mm)
             // =========================================================================
             "com.tencent.mm" -> {
-                try {
-                    val mmWebView = classLoader.loadClass("com.tencent.mm.plugin.webview.ui.tools.MMWebViewUI")
-                    val onCreate = mmWebView.getDeclaredMethod("onCreate", Bundle::class.java)
-                    hook(onCreate).intercept { chain ->
-                        val activity = chain.thisObject as? Activity
-                        val intent = activity?.intent
-                        if (intent != null) {
-                            var url = intent.getStringExtra("rawUrl")
-                            if (url.isNullOrBlank()) {
-                                val uriStr = intent.toUri(0)
-                                val match = Regex("S\\.rawUrl=(.*?);").find(uriStr)
-                                if (match != null) {
-                                    url = Uri.decode(match.groupValues[1])
-                                }
-                            }
-                            if (!url.isNullOrBlank() && (url.startsWith("http://") || url.startsWith("https://"))) {
-                                Log.d(TAG, "🔥 [API 102 微信内置网页拦截] -> $url")
-                                broadcastDetectedText(activity, url, "WeChat")
-                            }
-                        }
-                        chain.proceed()
-                    }
-                    Log.i(TAG, "API 102: Hooked MMWebViewUI.onCreate")
-                } catch (e: Exception) {
-                    Log.e(TAG, "API 102: Failed to hook MMWebViewUI", e)
+                hookWeChat(classLoader)
+                hookGenericActivity(classLoader, "WeChat")
+            }
+
+            // =========================================================================
+            // 4. 其他推荐 Hook 应用 (微博、B站、酷安、知乎、小红书、抖音、电商平台等)
+            // =========================================================================
+            else -> {
+                if (param.packageName != "com.nyehueh.fluidcloud") {
+                    hookGenericActivity(classLoader, param.packageName)
                 }
             }
         }
+    }
+
+    private fun hookQQ(classLoader: ClassLoader) {
+        try {
+            val qqBrowser = classLoader.loadClass("com.tencent.mobileqq.activity.QQBrowserActivity")
+            val onCreate = qqBrowser.getDeclaredMethod("onCreate", Bundle::class.java)
+            hook(onCreate).intercept { chain ->
+                val activity = chain.thisObject as? Activity
+                val intent = activity?.intent
+                if (intent != null) {
+                    var url = intent.getStringExtra("url")
+                    if (url.isNullOrBlank()) {
+                        val uriStr = intent.toUri(0)
+                        val match = Regex("S\\.url=(.*?);").find(uriStr)
+                        if (match != null) {
+                            url = Uri.decode(match.groupValues[1])
+                        }
+                    }
+                    if (!url.isNullOrBlank() && (url.startsWith("http://") || url.startsWith("https://"))) {
+                        Log.d(TAG, "🔥 [API 102 QQ 内置网页拦截] -> $url")
+                        broadcastDetectedText(activity, url, "QQ")
+                    }
+                }
+                chain.proceed()
+            }
+            Log.i(TAG, "API 102: Hooked QQBrowserActivity.onCreate")
+        } catch (e: Exception) {
+            Log.e(TAG, "API 102: Failed to hook QQBrowserActivity", e)
+        }
+    }
+
+    private fun hookWeChat(classLoader: ClassLoader) {
+        try {
+            val mmWebView = classLoader.loadClass("com.tencent.mm.plugin.webview.ui.tools.MMWebViewUI")
+            val onCreate = mmWebView.getDeclaredMethod("onCreate", Bundle::class.java)
+            hook(onCreate).intercept { chain ->
+                val activity = chain.thisObject as? Activity
+                val intent = activity?.intent
+                if (intent != null) {
+                    var url = intent.getStringExtra("rawUrl")
+                    if (url.isNullOrBlank()) {
+                        val uriStr = intent.toUri(0)
+                        val match = Regex("S\\.rawUrl=(.*?);").find(uriStr)
+                        if (match != null) {
+                            url = Uri.decode(match.groupValues[1])
+                        }
+                    }
+                    if (!url.isNullOrBlank() && (url.startsWith("http://") || url.startsWith("https://"))) {
+                        Log.d(TAG, "🔥 [API 102 微信内置网页拦截] -> $url")
+                        broadcastDetectedText(activity, url, "WeChat")
+                    }
+                }
+                chain.proceed()
+            }
+            Log.i(TAG, "API 102: Hooked MMWebViewUI.onCreate")
+        } catch (e: Exception) {
+            Log.e(TAG, "API 102: Failed to hook MMWebViewUI", e)
+        }
+    }
+
+    private fun hookGenericActivity(classLoader: ClassLoader, appTag: String) {
+        try {
+            val activityClass = classLoader.loadClass("android.app.Activity")
+            val startMethods = activityClass.declaredMethods.filter {
+                it.name == "startActivityForResult" && it.parameterTypes.contains(Intent::class.java)
+            }
+            for (m in startMethods) {
+                hook(m).intercept { chain ->
+                    val intent = chain.args.firstOrNull { it is Intent } as? Intent
+                    val act = chain.thisObject as? Activity
+                    if (intent != null && act != null) {
+                        val url = extractUrlFromIntent(intent)
+                        if (url != null) {
+                            Log.d(TAG, "🔥 [API 102 $appTag 外链拦截] -> $url")
+                            broadcastDetectedText(act, url, appTag)
+                        }
+                    }
+                    chain.proceed()
+                }
+            }
+        } catch (_: Exception) {}
     }
 }
 

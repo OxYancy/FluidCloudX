@@ -42,13 +42,24 @@ class RuleRepository(private val context: Context) {
         if (rulesFile.exists()) {
             try {
                 val text = rulesFile.readText()
-                _rules.value = json.decodeFromString(text)
+                val loaded = json.decodeFromString<List<Rule>>(text)
+                // 若本地规则仅有早期测试的3条或为空，自动升级初始化为内置的27条完整规则
+                if (loaded.size <= 3) {
+                    val defaultList = getDefaultRules()
+                    _rules.value = defaultList
+                    saveRules(defaultList)
+                } else {
+                    _rules.value = loaded
+                }
             } catch (e: Exception) {
-                _rules.value = getDefaultRules()
+                val defaultList = getDefaultRules()
+                _rules.value = defaultList
+                saveRules(defaultList)
             }
         } else {
-            _rules.value = getDefaultRules()
-            saveRules(_rules.value)
+            val defaultList = getDefaultRules()
+            _rules.value = defaultList
+            saveRules(defaultList)
         }
 
         if (configFile.exists()) {
@@ -67,6 +78,34 @@ class RuleRepository(private val context: Context) {
             rulesFile.writeText(json.encodeToString(newRules))
         } catch (e: Exception) {
             e.printStackTrace()
+        }
+    }
+
+    fun restoreDefaultRules(): Int {
+        val defaultList = getDefaultRules()
+        saveRules(defaultList)
+        return defaultList.size
+    }
+
+    fun getDefaultRules(): List<Rule> {
+        return try {
+            val inputStream = context.assets.open("default_rules.json")
+            val text = inputStream.bufferedReader().use { it.readText() }
+            json.decodeFromString<List<Rule>>(text)
+        } catch (e: Exception) {
+            e.printStackTrace()
+            getHardcodedFallbackRules()
+        }
+    }
+
+    fun getDefaultNoLinkRules(): List<Rule> {
+        return try {
+            val inputStream = context.assets.open("default_nolinkrules.json")
+            val text = inputStream.bufferedReader().use { it.readText() }
+            json.decodeFromString<List<Rule>>(text)
+        } catch (e: Exception) {
+            e.printStackTrace()
+            emptyList()
         }
     }
 
@@ -115,7 +154,8 @@ class RuleRepository(private val context: Context) {
             val downloadedRules = mutableListOf<Rule>()
             for (filename in jsonFileNames) {
                 try {
-                    val fileReq = Request.Builder().url("$rawBase/$filename").build()
+                    val encodedName = java.net.URLEncoder.encode(filename, "UTF-8").replace("+", "%20")
+                    val fileReq = Request.Builder().url("$rawBase/$encodedName").build()
                     val fileResp = client.newCall(fileReq).execute()
                     val fileText = fileResp.body?.string()
                     if (!fileText.isNullOrBlank()) {
@@ -143,7 +183,7 @@ class RuleRepository(private val context: Context) {
         }
     }
 
-    private fun getDefaultRules(): List<Rule> {
+    private fun getHardcodedFallbackRules(): List<Rule> {
         return listOf(
             Rule(
                 name = "百度网盘",

@@ -1,11 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
 <packages>
-    <!-- System Framework: Intercept system-level activity start and clipboard changes -->
+    <!-- 核心必须：系统框架 (拦截全局系统级 Intent 外链调度与剪贴板变动) -->
     <package name="android" />
-    <!-- QQ In-App Browser Hook -->
+
+    <!-- 社交与聊天 (拦截内置浏览器打开外链) -->
     <package name="com.tencent.mobileqq" />
-    <!-- WeChat In-App Browser Hook -->
     <package name="com.tencent.mm" />
-    <!-- Self module -->
+    <package name="com.sina.weibo" />
+
+    <!-- 影音与内容平台 (拦截应用内点击外链并转由流体云分发) -->
+    <package name="tv.danmaku.bili" />
+    <package name="com.coolapk.market" />
+    <package name="com.zhihu.android" />
+    <package name="com.xingin.xhs" />
+    <package name="com.ss.android.ugc.aweme" />
+
+    <!-- 电商与导购平台 (拦截口令与外部跳入链接) -->
+    <package name="com.taobao.taobao" />
+    <package name="com.jingdong.app.mall" />
+
+    <!-- 模块自身 -->
     <package name="com.nyehueh.fluidcloud" />
 </packages>

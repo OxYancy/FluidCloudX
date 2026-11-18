@@ -52,7 +52,7 @@ class RuleEngine(
             val ruleItem = chooseBestRuleItem(rule.rule, extractedLink.code != null, variableMap)
             val resolvedRuleText = synthesize(ruleItem.ruleText, variableMap)
 
-            val title = synthesize(rule.title ?: "打开应用", variableMap)
+            val title = synthesize(rule.title ?: "打开 ${rule.name}", variableMap)
             val message = synthesize(rule.message ?: extractedLink.url, variableMap)
 
             // Check top condition
