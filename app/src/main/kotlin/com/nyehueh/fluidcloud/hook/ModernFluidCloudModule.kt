@@ -8,189 +8,172 @@ import android.net.Uri
 import android.os.Bundle
 import android.os.UserHandle
 import android.util.Log
-import io.github.libxposed.api.XposedInterface
-import io.github.libxposed.api.XposedInterface.BeforeHookCallback
 import io.github.libxposed.api.XposedModule
-import io.github.libxposed.api.XposedModuleInterface.ModuleLoadedParam
 import io.github.libxposed.api.XposedModuleInterface.PackageLoadedParam
-import io.github.libxposed.api.XposedModuleInterface.SystemServerLoadedParam
-import io.github.libxposed.api.annotations.BeforeInvocation
-import io.github.libxposed.api.annotations.XposedHooker
-import java.lang.reflect.Method
 
 /**
  * 纯正 LSPosed / LibXposed API 102 原生规范模块
+ * 采用 OkHttp 式 Interceptor Chain (拦截器链) 模型进行全局方法拦截
  */
-class ModernFluidCloudModule(
-    base: XposedInterface,
-    param: ModuleLoadedParam
-) : XposedModule(base, param) {
+class ModernFluidCloudModule : XposedModule() {
 
     companion object {
         const val TAG = "FluidCloud-API102"
     }
 
-    override fun onSystemServerLoaded(param: SystemServerLoadedParam) {
-        super.onSystemServerLoaded(param)
-        Log.i(TAG, "system_server loaded -> initializing API 102 hooks")
-
-        val classLoader = param.classLoader
-
-        // 1. Hook ActivityStartController.obtainStarter(Intent, String)
-        try {
-            val ascClass = classLoader.loadClass("com.android.server.wm.ActivityStartController")
-            val obtainStarterMethod = ascClass.getDeclaredMethod(
-                "obtainStarter",
-                Intent::class.java,
-                String::class.java
-            )
-            hook(obtainStarterMethod, SystemIntentHooker::class.java)
-            Log.i(TAG, "API 102: Hooked ActivityStartController.obtainStarter successfully")
-        } catch (e: Exception) {
-            // Fallback for custom ROMs: hook ATMS.startActivity
-            try {
-                val atmsClass = classLoader.loadClass("com.android.server.wm.ActivityTaskManagerService")
-                val startMethods = atmsClass.declaredMethods.filter {
-                    it.name == "startActivity" && it.parameterTypes.contains(Intent::class.java)
-                }
-                for (m in startMethods) {
-                    hook(m, SystemIntentHooker::class.java)
-                }
-                Log.i(TAG, "API 102 Fallback: Hooked ATMS.startActivity methods")
-            } catch (ex: Exception) {
-                Log.e(TAG, "API 102: Failed to hook system activity starter", ex)
-            }
-        }
-
-        // 2. Hook ClipboardService.setPrimaryClip
-        try {
-            val clipboardClass = classLoader.loadClass("com.android.server.clipboard.ClipboardService")
-            val setPrimaryClipMethod = clipboardClass.declaredMethods.firstOrNull {
-                it.name == "setPrimaryClip" && it.parameterTypes.isNotEmpty() && it.parameterTypes[0] == ClipData::class.java
-            }
-            if (setPrimaryClipMethod != null) {
-                hook(setPrimaryClipMethod, SystemClipboardHooker::class.java)
-                Log.i(TAG, "API 102: Hooked ClipboardService.setPrimaryClip successfully")
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "API 102: Failed to hook ClipboardService", e)
-        }
-    }
-
     override fun onPackageLoaded(param: PackageLoadedParam) {
         super.onPackageLoaded(param)
 
+        val classLoader = param.defaultClassLoader
+
         when (param.packageName) {
+            // =========================================================================
+            // 1. 系统框架 (system_server)
+            // =========================================================================
+            "android" -> {
+                Log.i(TAG, "API 102: system_server (android) loaded -> initializing framework hooks")
+
+                // A. 拦截系统 Activity 启动控制器 (ActivityStartController.obtainStarter)
+                try {
+                    val ascClass = classLoader.loadClass("com.android.server.wm.ActivityStartController")
+                    val obtainStarterMethod = ascClass.getDeclaredMethod(
+                        "obtainStarter",
+                        Intent::class.java,
+                        String::class.java
+                    )
+                    hook(obtainStarterMethod).intercept { chain ->
+                        val intent = chain.getArg(0) as? Intent
+                        val reason = chain.getArg(1) as? String ?: ""
+                        if (intent != null) {
+                            val url = extractUrlFromIntent(intent)
+                            if (url != null) {
+                                Log.d(TAG, "🔥 [API 102 系统外链捕获] -> $url | reason=$reason")
+                            }
+                        }
+                        chain.proceed()
+                    }
+                    Log.i(TAG, "API 102: Hooked ActivityStartController.obtainStarter successfully")
+                } catch (e: Exception) {
+                    // 兜底机制：若定制 ROM 修改了 obtainStarter，反射扫描 ATMS.startActivity
+                    try {
+                        val atmsClass = classLoader.loadClass("com.android.server.wm.ActivityTaskManagerService")
+                        val startMethods = atmsClass.declaredMethods.filter {
+                            it.name == "startActivity" && it.parameterTypes.contains(Intent::class.java)
+                        }
+                        for (m in startMethods) {
+                            hook(m).intercept { chain ->
+                                val intent = chain.args.firstOrNull { it is Intent } as? Intent
+                                if (intent != null) {
+                                    val url = extractUrlFromIntent(intent)
+                                    if (url != null) {
+                                        Log.d(TAG, "🔥 [API 102 ATMS 外链捕获] -> $url")
+                                    }
+                                }
+                                chain.proceed()
+                            }
+                        }
+                        Log.i(TAG, "API 102 Fallback: Hooked ATMS.startActivity methods")
+                    } catch (ex: Exception) {
+                        Log.e(TAG, "API 102: Failed to hook system activity starter", ex)
+                    }
+                }
+
+                // B. 拦截系统剪贴板服务 (ClipboardService.setPrimaryClip)
+                try {
+                    val clipboardClass = classLoader.loadClass("com.android.server.clipboard.ClipboardService")
+                    val setPrimaryClipMethod = clipboardClass.declaredMethods.firstOrNull {
+                        it.name == "setPrimaryClip" && it.parameterTypes.isNotEmpty() && it.parameterTypes[0] == ClipData::class.java
+                    }
+                    if (setPrimaryClipMethod != null) {
+                        hook(setPrimaryClipMethod).intercept { chain ->
+                            val clip = chain.getArg(0) as? ClipData
+                            val callingPkg = chain.getArg(1) as? String ?: ""
+
+                            if (clip != null && clip.itemCount > 0 && callingPkg != "com.nyehueh.fluidcloud") {
+                                val text = clip.getItemAt(0)?.text?.toString()
+                                val thisObj = chain.thisObject
+                                if (!text.isNullOrBlank() && thisObj != null) {
+                                    val context = try {
+                                        thisObj.javaClass.getMethod("getContext").invoke(thisObj) as? Context
+                                    } catch (_: Exception) {
+                                        null
+                                    }
+                                    if (context != null) {
+                                        Log.d(TAG, "🔥 [API 102 剪贴板变动] from $callingPkg: $text")
+                                        broadcastDetectedText(context, text, "clipboard")
+                                    }
+                                }
+                            }
+                            chain.proceed()
+                        }
+                        Log.i(TAG, "API 102: Hooked ClipboardService.setPrimaryClip successfully")
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "API 102: Failed to hook ClipboardService", e)
+                }
+            }
+
+            // =========================================================================
+            // 2. QQ 内置网页 (com.tencent.mobileqq)
+            // =========================================================================
             "com.tencent.mobileqq" -> {
                 try {
-                    val qqBrowser = param.classLoader.loadClass("com.tencent.mobileqq.activity.QQBrowserActivity")
+                    val qqBrowser = classLoader.loadClass("com.tencent.mobileqq.activity.QQBrowserActivity")
                     val onCreate = qqBrowser.getDeclaredMethod("onCreate", Bundle::class.java)
-                    hook(onCreate, QQBrowserHooker::class.java)
+                    hook(onCreate).intercept { chain ->
+                        val activity = chain.thisObject as? Activity
+                        val intent = activity?.intent
+                        if (intent != null) {
+                            var url = intent.getStringExtra("url")
+                            if (url.isNullOrBlank()) {
+                                val uriStr = intent.toUri(0)
+                                val match = Regex("S\\.url=(.*?);").find(uriStr)
+                                if (match != null) {
+                                    url = Uri.decode(match.groupValues[1])
+                                }
+                            }
+                            if (!url.isNullOrBlank() && (url.startsWith("http://") || url.startsWith("https://"))) {
+                                Log.d(TAG, "🔥 [API 102 QQ 内置网页拦截] -> $url")
+                                broadcastDetectedText(activity, url, "QQ")
+                            }
+                        }
+                        chain.proceed()
+                    }
                     Log.i(TAG, "API 102: Hooked QQBrowserActivity.onCreate")
                 } catch (e: Exception) {
                     Log.e(TAG, "API 102: Failed to hook QQBrowserActivity", e)
                 }
             }
+
+            // =========================================================================
+            // 3. 微信内置网页 (com.tencent.mm)
+            // =========================================================================
             "com.tencent.mm" -> {
                 try {
-                    val mmWebView = param.classLoader.loadClass("com.tencent.mm.plugin.webview.ui.tools.MMWebViewUI")
+                    val mmWebView = classLoader.loadClass("com.tencent.mm.plugin.webview.ui.tools.MMWebViewUI")
                     val onCreate = mmWebView.getDeclaredMethod("onCreate", Bundle::class.java)
-                    hook(onCreate, WeChatWebViewHooker::class.java)
+                    hook(onCreate).intercept { chain ->
+                        val activity = chain.thisObject as? Activity
+                        val intent = activity?.intent
+                        if (intent != null) {
+                            var url = intent.getStringExtra("rawUrl")
+                            if (url.isNullOrBlank()) {
+                                val uriStr = intent.toUri(0)
+                                val match = Regex("S\\.rawUrl=(.*?);").find(uriStr)
+                                if (match != null) {
+                                    url = Uri.decode(match.groupValues[1])
+                                }
+                            }
+                            if (!url.isNullOrBlank() && (url.startsWith("http://") || url.startsWith("https://"))) {
+                                Log.d(TAG, "🔥 [API 102 微信内置网页拦截] -> $url")
+                                broadcastDetectedText(activity, url, "WeChat")
+                            }
+                        }
+                        chain.proceed()
+                    }
                     Log.i(TAG, "API 102: Hooked MMWebViewUI.onCreate")
                 } catch (e: Exception) {
                     Log.e(TAG, "API 102: Failed to hook MMWebViewUI", e)
-                }
-            }
-        }
-    }
-
-    // =========================================================================
-    // API 102 Hooker Classes
-    // =========================================================================
-
-    @XposedHooker
-    class SystemIntentHooker : XposedInterface.Hooker {
-        companion object {
-            @JvmStatic
-            @BeforeInvocation
-            fun before(callback: BeforeHookCallback) {
-                val intent = callback.args.firstOrNull { it is Intent } as? Intent ?: return
-                val url = extractUrlFromIntent(intent) ?: return
-
-                Log.d(TAG, "🔥 [API 102 系统框架外链捕获] -> $url (pkg=${intent.`package`})")
-            }
-        }
-    }
-
-    @XposedHooker
-    class SystemClipboardHooker : XposedInterface.Hooker {
-        companion object {
-            @JvmStatic
-            @BeforeInvocation
-            fun before(callback: BeforeHookCallback) {
-                val clip = callback.args.getOrNull(0) as? ClipData ?: return
-                if (clip.itemCount == 0) return
-                val text = clip.getItemAt(0)?.text?.toString() ?: return
-                val callingPkg = callback.args.getOrNull(1) as? String ?: ""
-
-                if (callingPkg == "com.nyehueh.fluidcloud") return
-
-                val thisObj = callback.thisObject ?: return
-                val context = try {
-                    thisObj.javaClass.getMethod("getContext").invoke(thisObj) as? Context
-                } catch (e: Exception) {
-                    null
-                } ?: return
-
-                Log.d(TAG, "🔥 [API 102 系统剪贴板变动] from $callingPkg: $text")
-                broadcastDetectedText(context, text, "clipboard")
-            }
-        }
-    }
-
-    @XposedHooker
-    class QQBrowserHooker : XposedInterface.Hooker {
-        companion object {
-            @JvmStatic
-            @BeforeInvocation
-            fun before(callback: BeforeHookCallback) {
-                val activity = callback.thisObject as? Activity ?: return
-                val intent = activity.intent ?: return
-                var url = intent.getStringExtra("url")
-                if (url.isNullOrBlank()) {
-                    val uriStr = intent.toUri(0)
-                    val match = Regex("S\\.url=(.*?);").find(uriStr)
-                    if (match != null) {
-                        url = Uri.decode(match.groupValues[1])
-                    }
-                }
-                if (!url.isNullOrBlank() && (url.startsWith("http://") || url.startsWith("https://"))) {
-                    Log.d(TAG, "🔥 [API 102 QQ 内置网页拦截] -> $url")
-                    broadcastDetectedText(activity, url, "QQ")
-                }
-            }
-        }
-    }
-
-    @XposedHooker
-    class WeChatWebViewHooker : XposedInterface.Hooker {
-        companion object {
-            @JvmStatic
-            @BeforeInvocation
-            fun before(callback: BeforeHookCallback) {
-                val activity = callback.thisObject as? Activity ?: return
-                val intent = activity.intent ?: return
-                var url = intent.getStringExtra("rawUrl")
-                if (url.isNullOrBlank()) {
-                    val uriStr = intent.toUri(0)
-                    val match = Regex("S\\.rawUrl=(.*?);").find(uriStr)
-                    if (match != null) {
-                        url = Uri.decode(match.groupValues[1])
-                    }
-                }
-                if (!url.isNullOrBlank() && (url.startsWith("http://") || url.startsWith("https://"))) {
-                    Log.d(TAG, "🔥 [API 102 微信内置网页拦截] -> $url")
-                    broadcastDetectedText(activity, url, "WeChat")
                 }
             }
         }
